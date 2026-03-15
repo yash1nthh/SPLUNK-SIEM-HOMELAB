@@ -1,0 +1,124 @@
+## Incident Response Playbook – SSH Brute Force Attack
+
+### Incident Overview
+
+A Splunk alert was triggered indicating multiple failed SSH login attempts from a single source IP address targeting the Linux server.
+
+**Alert Name:** SSH Brute Force Detection
+**Target System:** Ubuntu Linux Server
+**Log Source:** /var/log/auth.log
+**Detection Tool:** Splunk Enterprise SIEM
+
+### Severity
+
+**High**
+
+Reason: Multiple failed SSH login attempts followed by a successful authentication and potential privilege escalation activity may indicate account compromise.
+
+---
+
+### Detection Summary
+
+The SIEM detection rule monitors Linux authentication logs for repeated failed SSH login attempts from a single source IP address. If the threshold is exceeded, a brute force attack alert is generated.
+
+Additional correlation rules monitor for successful login attempts and sudo activity that may indicate a compromised account and privilege escalation attempt.
+
+---
+
+## Investigation Steps
+
+### Step 1 – Identify Attacker IP
+
+**Search Query**
+
+```
+index=* "Failed password"
+| rex "from (?<src_ip>\d+\.\d+\.\d+\.\d+)"
+| stats count by src_ip
+```
+
+**Purpose**
+
+Identify the source IP responsible for multiple failed authentication attempts.
+
+---
+
+### Step 2 – Check for Successful Login
+
+**Search Query**
+
+```
+index=* "Accepted password"
+| rex "from (?<src_ip>\d+\.\d+\.\d+\.\d+)"
+```
+
+**Purpose**
+
+Determine whether the attacker successfully authenticated after the brute force attempts.
+
+---
+
+### Step 3 – Check Privilege Escalation Activity
+
+**Search Query**
+
+```
+index=* sudo
+```
+
+**Purpose**
+
+Identify whether the compromised account attempted to escalate privileges using sudo commands.
+
+---
+
+### Step 4 – Threat Intelligence Verification
+
+**Search Query**
+
+```
+| makeresults
+| eval src_ip="ATTACKER_IP"
+| lookup alienvault_lookup ip as src_ip OUTPUT reputation country
+```
+
+**Purpose**
+
+Check if the attacker IP appears in known threat intelligence feeds.
+
+---
+
+## MITRE ATT&CK Mapping
+
+| Activity             | Technique |
+| -------------------- | --------- |
+| SSH Brute Force      | T1110     |
+| Successful Login     | T1078     |
+| Privilege Escalation | T1548     |
+
+---
+
+## Containment and Response Actions
+
+If malicious activity is confirmed, perform the following containment steps:
+
+1. Block the attacker IP address using the firewall.
+2. Reset or disable compromised user credentials.
+3. Review system logs for additional suspicious activity.
+4. Continue monitoring the system for further login attempts.
+
+Example command to block attacker IP on Linux:
+
+```
+sudo ufw deny ATTACKER_IP
+```
+
+---
+
+## Incident Conclusion
+
+Multiple failed SSH authentication attempts were detected from a single source IP address targeting the Linux server.
+
+A successful login occurred shortly after the brute force attempts, followed by sudo activity, indicating a possible privilege escalation attempt.
+
+This activity pattern suggests a potential account compromise. The attacker IP address was blocked and the affected account credentials were reset to prevent further unauthorized access.
